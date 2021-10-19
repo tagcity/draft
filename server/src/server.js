@@ -1,8 +1,8 @@
 //@ts-check
-import { WebSocketServer} from "ws";
+import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import * as debug from 'debug';
-import { fetchImages } from "./archillect.js";
+import { fetchImages } from './archillect.js';
 
 const d = debug('server');
 
@@ -10,14 +10,14 @@ async function main() {
   const PORT = 1337;
   const MAX_SOCKETS = 4;
   const MAX_ROUNDS = 2;
-  const images = await fetchImages(MAX_SOCKETS*MAX_ROUNDS);
+  const images = await fetchImages(MAX_SOCKETS * MAX_ROUNDS);
   const RESOURCES = new Map(images.map((img, idx) => [idx, img]));
 
   const states = {
     IDLE: 'idle',
     IN_PROGRESS: 'in-progress',
-    COMPLETE: 'complete'
-  }
+    COMPLETE: 'complete',
+  };
 
   let STATE = states.IDLE;
   let ORDER;
@@ -25,12 +25,12 @@ async function main() {
   let ROUND = 0;
 
   d(`Starting server on port ${PORT}`);
-  const wss = new WebSocketServer({port: PORT});
+  const wss = new WebSocketServer({ port: PORT });
   const clients = new Map();
 
   const messages = {
-    START: 'start'
-  }
+    START: 'start',
+  };
 
   wss.on('connection', function connection(ws) {
     if (clients.size === MAX_SOCKETS) {
@@ -40,11 +40,10 @@ async function main() {
     }
     const metadata = {
       id: uuidv4(),
-      picks: new Set()
+      picks: new Set(),
     };
     d('New connection added: %O', metadata);
     clients.set(ws, metadata);
-
 
     // send a welcome message
     const playerId = clients.get(ws).id;
@@ -66,8 +65,13 @@ async function main() {
         broadcast(`TURN ORDER ${ORDER}`);
         turnAction();
         STATE = states.IN_PROGRESS;
-      } else if (STATE === states.IN_PROGRESS && !Number.isNaN(Number(message)) && this === ORDER[TURN] && RESOURCES.has(Number(message))) {
-        const {picks, id} = clients.get(this);
+      } else if (
+        STATE === states.IN_PROGRESS &&
+        !Number.isNaN(Number(message)) &&
+        this === ORDER[TURN] &&
+        RESOURCES.has(Number(message))
+      ) {
+        const { picks, id } = clients.get(this);
         const num = Number(message);
         broadcast(`Player ${id} has chosen ${num}.`);
         picks.add(RESOURCES.get(num));
@@ -76,7 +80,7 @@ async function main() {
         turnAction();
       }
     });
-  })
+  });
 
   function turnAction() {
     if (TURN === 0 && STATE === states.IN_PROGRESS) {
@@ -92,13 +96,17 @@ async function main() {
       }
     }
     const players = Array.from(clients.values());
-    broadcast(`ROUND ${ROUND + 1} OF ${MAX_ROUNDS} | TURN ${TURN + 1} | Player ${players[TURN].id} chooses.`);
+    broadcast(
+      `ROUND ${ROUND + 1} OF ${MAX_ROUNDS} | TURN ${TURN + 1} | Player ${
+        players[TURN].id
+      } chooses.`,
+    );
     broadcast(`Assets remaining: ${JSON.stringify(Object.fromEntries(RESOURCES), null, 2)}`);
   }
 
   /**
-   * 
-   * @param {string} data 
+   *
+   * @param {string} data
    */
   function broadcast(data) {
     for (const [client, metadata] of clients) {

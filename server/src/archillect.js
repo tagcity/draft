@@ -3,11 +3,11 @@ import cheerio from 'cheerio';
 import got from 'got';
 
 /**
- * 
- * @param {number} num 
+ *
+ * @param {number} num
  */
 export async function fetchImages(num) {
-  const promises = Array.from({length: num}, () => getImage());
+  const promises = Array.from({ length: num }, () => getImage());
   const images = await Promise.all(promises);
   return images;
 }
