@@ -1,7 +1,10 @@
 //@ts-check
 import { WebSocketServer} from "ws";
 import { v4 as uuidv4 } from 'uuid';
+import * as debug from 'debug';
 import { fetchImages } from "./archillect.js";
+
+const d = debug('server');
 
 async function main() {
   const PORT = 1337;
@@ -21,7 +24,7 @@ async function main() {
   let TURN = 0;
   let ROUND = 0;
 
-  console.log(`Starting server on port ${PORT}`);
+  d(`Starting server on port ${PORT}`);
   const wss = new WebSocketServer({port: PORT});
   const clients = new Map();
 
@@ -31,6 +34,7 @@ async function main() {
 
   wss.on('connection', function connection(ws) {
     if (clients.size === MAX_SOCKETS) {
+      d(`Max socket count ${MAX_SOCKETS} reached`);
       ws.send(`Public health mandate says only ${MAX_SOCKETS} clients allowed. Goodbye.`);
       ws.terminate();
     }
@@ -38,7 +42,7 @@ async function main() {
       id: uuidv4(),
       picks: new Set()
     };
-    console.log('New connection', {metadata});
+    d('New connection added: %O', metadata);
     clients.set(ws, metadata);
 
 
@@ -50,11 +54,11 @@ async function main() {
     ws.on('close', function close(code, reason) {
       const playerId = clients.get(this).id;
       clients.delete(this);
-      console.log('client disconnected', playerId);
+      d('Client disconnected: %s', playerId);
     });
 
     ws.on('message', function incoming(message) {
-      console.log('received: %s', message);
+      d('Received message: %s', message);
 
       if (message.toString() === messages.START && STATE === states.IDLE) {
         ORDER = Array.from(clients.keys());
@@ -78,7 +82,7 @@ async function main() {
     if (TURN === 0 && STATE === states.IN_PROGRESS) {
       ROUND++;
       if (ROUND === MAX_ROUNDS) {
-        console.log('finishing up');
+        d('Reached MAXROUNDS (%s), ending draft', MAX_ROUNDS);
         STATE = states.COMPLETE;
         broadcast('DRAFT COMPLETE');
         for (const metadata of clients.values()) {
