@@ -1,0 +1,19 @@
+{
+  "name": "server",
+  "version": "0.0.0-development",
+  "license": "MIT",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.10",
+    "got": "^11.8.2",
+    "uuid": "^8.3.2",
+    "ws": "^8.2.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.13"
+  }
+}
