@@ -1,8 +1,8 @@
-//@ts-check
+// @ts-check
 import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import * as debug from 'debug';
-import { fetchImages } from './archillect.js';
+import debug from 'debug';
+import { fetchImages } from './archillect';
 
 const d = debug('server');
 
@@ -32,7 +32,40 @@ async function main() {
     START: 'start',
   };
 
-  wss.on('connection', function connection(ws) {
+  /**
+   *
+   * @param {string} data
+   */
+  function broadcast(data) {
+    for (const [client, metadata] of clients) {
+      const data2 = data.replace(metadata.id, `${metadata.id} (YOU)`);
+      client.send(data2);
+    }
+  }
+
+  function turnAction() {
+    if (TURN === 0 && STATE === states.IN_PROGRESS) {
+      ROUND++;
+      if (ROUND === MAX_ROUNDS) {
+        d('Reached MAXROUNDS (%s), ending draft', MAX_ROUNDS);
+        STATE = states.COMPLETE;
+        broadcast('DRAFT COMPLETE');
+        for (const metadata of clients.values()) {
+          broadcast(`Player ${metadata.id} has selected ${Array.from(metadata.picks)}`);
+        }
+        return;
+      }
+    }
+    const players = Array.from(clients.values());
+    broadcast(
+      `ROUND ${ROUND + 1} OF ${MAX_ROUNDS} | TURN ${TURN + 1} | Player ${
+        players[TURN].id
+      } chooses.`,
+    );
+    broadcast(`Assets remaining: ${JSON.stringify(Object.fromEntries(RESOURCES), null, 2)}`);
+  }
+
+  wss.on('connection', (ws) => {
     if (clients.size === MAX_SOCKETS) {
       d(`Max socket count ${MAX_SOCKETS} reached`);
       ws.send(`Public health mandate says only ${MAX_SOCKETS} clients allowed. Goodbye.`);
@@ -50,10 +83,10 @@ async function main() {
     broadcast(`Player ${playerId} has joined.`);
 
     // listeners
-    ws.on('close', function close(code, reason) {
-      const playerId = clients.get(this).id;
+    ws.on('close', () => {
+      const { id } = clients.get(this);
       clients.delete(this);
-      d('Client disconnected: %s', playerId);
+      d('Client disconnected: %s', id);
     });
 
     ws.on('message', function incoming(message) {
@@ -81,39 +114,6 @@ async function main() {
       }
     });
   });
-
-  function turnAction() {
-    if (TURN === 0 && STATE === states.IN_PROGRESS) {
-      ROUND++;
-      if (ROUND === MAX_ROUNDS) {
-        d('Reached MAXROUNDS (%s), ending draft', MAX_ROUNDS);
-        STATE = states.COMPLETE;
-        broadcast('DRAFT COMPLETE');
-        for (const metadata of clients.values()) {
-          broadcast(`Player ${metadata.id} has selected ${Array.from(metadata.picks)}`);
-        }
-        return;
-      }
-    }
-    const players = Array.from(clients.values());
-    broadcast(
-      `ROUND ${ROUND + 1} OF ${MAX_ROUNDS} | TURN ${TURN + 1} | Player ${
-        players[TURN].id
-      } chooses.`,
-    );
-    broadcast(`Assets remaining: ${JSON.stringify(Object.fromEntries(RESOURCES), null, 2)}`);
-  }
-
-  /**
-   *
-   * @param {string} data
-   */
-  function broadcast(data) {
-    for (const [client, metadata] of clients) {
-      const data2 = data.replace(metadata.id, `${metadata.id} (YOU)`);
-      client.send(data2);
-    }
-  }
 }
 
 main();
